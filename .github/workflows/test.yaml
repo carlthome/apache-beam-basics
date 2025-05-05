@@ -1,0 +1,70 @@
+on:
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - "**/*.md"
+  pull_request:
+    paths:
+      - "*.py"
+      - "requirements.txt"
+
+jobs:
+  pre-commit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          cache: pip
+      - uses: pre-commit/action@v3.0.1
+
+  changed-scripts:
+    runs-on: ubuntu-latest
+    outputs:
+      scripts: ${{ steps.set-scripts.outputs.scripts }}
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      - name: Get changed Python scripts in repo root
+        id: set-scripts
+        run: |
+          set -x
+
+          # Get the base branch for pull requests or default to 'main' for push events.
+          BASE_REF=${{ github.event.pull_request.base.ref || 'main' }}
+          CHANGED_FILES=$(git diff --name-only "$BASE_REF" "${{ github.sha }}" | grep '\.py$' || true)
+
+          # Consider all files changed if requirements.txt is changed or if push to main event.
+          if [[ "$CHANGED_FILES" == *"requirements.txt"* || "${{ github.event_name }}" == "push" ]]; then
+            CHANGED_FILES=$(find . -name "*.py")
+          fi
+
+          # Store the changed files in a JSON array.
+          FILES_JSON=$(echo "$CHANGED_FILES" | jq -R -s -c 'split("\n") | map(select(length > 0))')
+          echo "scripts=$FILES_JSON" >> "$GITHUB_OUTPUT"
+
+  test-script:
+    needs: changed-scripts
+    runs-on: ubuntu-latest
+    if: needs.changed-scripts.outputs.scripts != '[]'
+    strategy:
+      fail-fast: false
+      matrix:
+        script: ${{ fromJson(needs.changed-scripts.outputs.scripts) }}
+    name: ${{ matrix.script }}
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          cache: pip
+
+      - name: Install requirements
+        run: pip install -r requirements.txt
+
+      - name: Run script
+        run: python ${{ matrix.script }}
