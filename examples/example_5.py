@@ -1,4 +1,4 @@
-"""FlatMap & Flatten"""
+"""FlatMap and Flatten"""
 
 import apache_beam as beam
 
@@ -14,4 +14,4 @@ with beam.Pipeline() as p:
     # Flatten: merge multiple PCollections
     a = p | "List A" >> beam.Create([1, 2])
     b = p | "List B" >> beam.Create([3, 4])
-    (a, b) | beam.Flatten() | beam.Map(print)
+    (a, b) | beam.Flatten() | beam.LogElements()

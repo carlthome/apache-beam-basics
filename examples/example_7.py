@@ -1,4 +1,4 @@
-"""Example: Total duration of music track — Mapping & Reducing"""
+"""Example: Total duration of music tracks"""
 
 import apache_beam as beam
 
@@ -9,14 +9,18 @@ tracks = [
     {"title": "Song D", "genre": "jazz", "duration": 240},
 ]
 
+
+def get_duration(track):
+    genre = track["genre"]
+    duration = track["duration"]
+    return genre, duration
+
+
 with beam.Pipeline() as p:
     (
         p
         | "Create tracks" >> beam.Create(tracks)
-        # Map to (genre, duration)
-        | "Extract genre & duration"
-        >> beam.Map(lambda track: (track["genre"], track["duration"]))
-        # Sum durations per genre
+        | "Extract genre and duration" >> beam.Map(get_duration)
         | "Total duration per genre" >> beam.CombinePerKey(sum)
         | "Print results" >> beam.Map(print)
     )
